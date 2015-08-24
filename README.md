@@ -3,7 +3,7 @@ Most Web Framework MySQL Adapter
 ##Install
 $ npm install most-data-mysql
 ##Usage
-Register Oracle adapter on app.json as follows:
+Register MySQL adapter on app.json as follows:
 
     "adapterTypes": [
         ...
