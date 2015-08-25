@@ -275,20 +275,20 @@ MySqlAdapter.prototype.execute = function(query, values, callback) {
                     console.log(util.format('SQL:%s, Parameters:%s', sql, JSON.stringify(values)));
                 //execute raw command
                 /*
-                //using timestamp casting (obsolete)
+                //using timestamp and tinyint (?) casting (obsolete)
                 {
                  sql: sql,
-                     typeCast: function (field, next) {
-                         if (field.type === 'TIMESTAMP') {
-                             var s = field.string();
-                                 if (/\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}/.test(s)) {
-                                    return new Date(s);
-                                 }
-                                 return;
-                             }
-                             return next();
+                 typeCast: function (field, next) {
+                     if (field.type === 'TIMESTAMP') {
+                     var s = field.string();
+                         if (/\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}/.test(s)) {
+                            return new Date(s);
                          }
+                         return;
                      }
+                     return next();
+                  }
+                }
                 */
                 self.rawConnection.query(sql, values, function(err, result) {
                     callback.call(self, err, result);
