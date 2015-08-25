@@ -1,0 +1,32 @@
+{
+  "name": "most-data-mysql",
+  "version": "0.1.0",
+  "description": "MOST Web Framework MySQL Data Adapter",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kbarbounakis/most-data-mysql.git"
+  },
+  "keywords": [
+    "data",
+    "db",
+    "mysql",
+    "orm",
+    "most",
+    "database"
+  ],
+  "author": "Kyriakos Barbounakis <k.barbounakis@gmail.com>",
+  "license": "BSD3-Clause",
+  "bugs": {
+    "url": "https://github.com/kbarbounakis/most-data-mysql/issues"
+  },
+  "homepage": "https://github.com/kbarbounakis/most-data-mysql",
+  "dependencies": {
+    "async": "^1.4.2",
+    "most-query": "~0.1.21",
+    "mysql": "^2.1.0"
+  }
+}
