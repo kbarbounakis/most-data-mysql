@@ -274,6 +274,22 @@ MySqlAdapter.prototype.execute = function(query, values, callback) {
                 if (process.env.NODE_ENV==='development')
                     console.log(util.format('SQL:%s, Parameters:%s', sql, JSON.stringify(values)));
                 //execute raw command
+                /*
+                //using timestamp casting (obsolete)
+                {
+                 sql: sql,
+                     typeCast: function (field, next) {
+                         if (field.type === 'TIMESTAMP') {
+                             var s = field.string();
+                                 if (/\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}/.test(s)) {
+                                    return new Date(s);
+                                 }
+                                 return;
+                             }
+                             return next();
+                         }
+                     }
+                */
                 self.rawConnection.query(sql, values, function(err, result) {
                     callback.call(self, err, result);
                 });
@@ -800,7 +816,7 @@ MySqlFormatter.prototype.escapeDate = function(val) {
     var second = zeroPad(val.getSeconds(), 2);
     var millisecond = zeroPad(val.getMilliseconds(), 3);
     //format timezone
-    var offset = (new Date()).getTimezoneOffset(),
+    var offset = val.getTimezoneOffset(),
         timezone = (offset<=0 ? '+' : '-') + zeroPad(-Math.floor(offset/60),2) + ':' + zeroPad(offset%60,2);
     return "'" + year + '-' + month + '-' + day + ' ' + hour + ':' + minute + ':' + second + "." + millisecond + timezone + "'";
 };
