@@ -255,7 +255,7 @@ MySqlAdapter.prototype.execute = function(query, values, callback) {
         }
         else {
             //format query expression or any object that may be act as query expression
-            var formatter = new qry.classes.SqlFormatter();
+            var formatter = new MySqlFormatter();
             formatter.settings.nameFormat = MySqlAdapter.NAME_FORMAT;
             sql = formatter.format(query);
         }
@@ -270,7 +270,6 @@ MySqlAdapter.prototype.execute = function(query, values, callback) {
                 callback.call(self, err);
             }
             else {
-                //todo: validate statement for sql injection (e.g single statement etc)
                 //log statement (optional)
                 if (process.env.NODE_ENV==='development')
                     console.log(util.format('SQL:%s, Parameters:%s', sql, JSON.stringify(values)));
@@ -334,7 +333,7 @@ MySqlAdapter.formatType = function(field)
             break;
         case 'DateTime':
         case 'Time':
-            s = 'datetime';
+            s = 'timestamp';
             break;
         case 'Integer':
         case 'Duration':
@@ -485,6 +484,13 @@ MySqlAdapter.prototype.migrate = function(obj, callback) {
                 function(arg, cb) {
                     //migration has already been applied
                     if (arg<0) { return cb(null, arg); }
+                    if (arg==0) {
+                        //create table
+                        return self.table(migration.appliesTo).create(migration.add, function(err) {
+                            if (err) { return cb(err); }
+                            cb(null, 1);
+                        });
+                    }
                     //columns to be removed (unsupported)
                     if (util.isArray(migration.remove)) {
                         if (migration.remove.length>0) {
@@ -517,7 +523,7 @@ MySqlAdapter.prototype.migrate = function(obj, callback) {
                                         //get new type
                                         newType = MySqlAdapter.format('%t', x);
                                         //get old type
-                                        oldType = column.type1 + ((column.nullable==true || column.nullable == 1) ? ' null' : ' not null');
+                                        oldType = column.type1.replace(/\s+$/,'') + ((column.nullable==true || column.nullable == 1) ? ' null' : ' not null');
                                         //remove column from collection
                                         migration.add.splice(i, 1);
                                         i-=1;
@@ -580,8 +586,8 @@ MySqlAdapter.prototype.table = function(name) {
             callback = callback || function() {};
             self.execute('SELECT COUNT(*) AS `count` FROM information_schema.TABLES WHERE TABLE_NAME=? AND TABLE_SCHEMA=DATABASE()',
                 [ name ], function(err, result) {
-                    if (err) { cb(err); return; }
-                    cb(null, result[0].count);
+                    if (err) { return callback(err); }
+                    callback(null, result[0].count);
                 });
         },
         /**
@@ -606,12 +612,12 @@ MySqlAdapter.prototype.table = function(name) {
             self.execute('SELECT COLUMN_NAME AS `name`, DATA_TYPE as `type`, ' +
                 'CHARACTER_MAXIMUM_LENGTH as `size`,CASE WHEN IS_NULLABLE=\'YES\' THEN 1 ELSE 0 END AS `nullable`, ' +
                 'NUMERIC_PRECISION as `precision`, NUMERIC_SCALE as `scale`, ' +
-                'CASE WHEN COLUMN_KEY=\'PRI\' THEN 1 ELSE 0 END AS `primary` ' +
+                'CASE WHEN COLUMN_KEY=\'PRI\' THEN 1 ELSE 0 END AS `primary`, ' +
                 'CONCAT(COLUMN_TYPE, (CASE WHEN EXTRA = NULL THEN \'\' ELSE CONCAT(\' \',EXTRA) END)) AS `type1` ' +
                 'FROM information_schema.COLUMNS WHERE TABLE_NAME=? AND TABLE_SCHEMA=DATABASE()',
-                [ name ], function(err) {
+                [ name ], function(err, result) {
                     if (err) { return callback(err); }
-                    callback();
+                    callback(null, result);
                 });
         },
         /**
@@ -631,14 +637,14 @@ MySqlAdapter.prototype.table = function(name) {
                 return !x.oneToMany;
             }).map(
                 function(x) {
-                    return format('`%f` %t', x);
+                    return MySqlAdapter.format('`%f` %t', x);
                 }).join(', ');
             //add primary key constraint
             var strPKFields = fields.filter(function(x) { return (x.primary == true || x.primary == 1); }).map(function(x) {
                 return MySqlAdapter.format('`%f`', x);
             }).join(', ');
             if (strPKFields.length>0) {
-                strFields += ', ' + util.format('PRIMARY KEY (%s)', name, strPKFields);
+                strFields += ', ' + util.format('PRIMARY KEY (%s)', strPKFields);
             }
             var sql = util.format('CREATE TABLE %s (%s)', name, strFields);
             self.execute(sql, null, function(err) {
@@ -666,7 +672,7 @@ MySqlAdapter.prototype.table = function(name) {
             var strTable = formatter.escapeName(name);
             //generate SQL statement
             var sql = fields.map(function(x) {
-                return format('ALTER TABLE ' + strTable + ' ADD COLUMN `%f` %t', x);
+                return MySqlAdapter.format('ALTER TABLE ' + strTable + ' ADD COLUMN `%f` %t', x);
             }).join(';');
             self.execute(sql, [], function(err) {
                 callback(err);
@@ -693,7 +699,7 @@ MySqlAdapter.prototype.table = function(name) {
             var strTable = formatter.escapeName(name);
             //generate SQL statement
             var sql = fields.map(function(x) {
-                return format('ALTER TABLE ' + strTable + ' MODIFY COLUMN `%f` %t', x);
+                return MySqlAdapter.format('ALTER TABLE ' + strTable + ' MODIFY COLUMN `%f` %t', x);
             }).join(';');
             self.execute(sql, [], function(err) {
                 callback(err);
@@ -712,6 +718,15 @@ MySqlAdapter.queryFormat = function (query, values) {
     }.bind(this));
 };
 
+function zeroPad(number, length) {
+    number = number || 0;
+    var res = number.toString();
+    while (res.length < length) {
+        res = '0' + res;
+    }
+    return res;
+}
+
 /**
  * @class MySqlFormatter
  * @constructor
@@ -726,6 +741,39 @@ function MySqlFormatter() {
 util.inherits(MySqlFormatter, qry.classes.SqlFormatter);
 
 MySqlFormatter.NAME_FORMAT = '`$1`';
+
+MySqlFormatter.prototype.escapeName = function(name) {
+    if (typeof name === 'string')
+        return name.replace(/(\w+)/ig, '`$1`');
+    return name;
+};
+
+MySqlFormatter.prototype.escape = function(value,unquoted)
+{
+    if (typeof value === 'boolean') { return value ? '1' : '0'; }
+    if (value instanceof Date) {
+        return this.escapeDate(value);
+    }
+    return MySqlFormatter.super_.prototype.escape.call(this, value, unquoted);
+};
+
+/**
+ * @param {Date|*} val
+ * @returns {string}
+ */
+MySqlFormatter.prototype.escapeDate = function(val) {
+    var year   = val.getFullYear();
+    var month  = zeroPad(val.getMonth() + 1, 2);
+    var day    = zeroPad(val.getDate(), 2);
+    var hour   = zeroPad(val.getHours(), 2);
+    var minute = zeroPad(val.getMinutes(), 2);
+    var second = zeroPad(val.getSeconds(), 2);
+    var millisecond = zeroPad(val.getMilliseconds(), 3);
+    //format timezone
+    var offset = (new Date()).getTimezoneOffset(),
+        timezone = (offset<=0 ? '+' : '-') + zeroPad(-Math.floor(offset/60),2) + ':' + zeroPad(offset%60,2);
+    return "'" + year + '-' + month + '-' + day + ' ' + hour + ':' + minute + ':' + second + "." + millisecond + timezone + "'";
+};
 
 if (typeof exports !== 'undefined')
 {
