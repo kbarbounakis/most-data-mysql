@@ -374,53 +374,7 @@ MySqlAdapter.formatType = function(field)
  * @param {function(Error=)} callback
  */
 MySqlAdapter.prototype.createView = function(name, query, callback) {
-    var self = this;
-    //open database
-    self.open(function(err) {
-        if (err) {
-            callback.call(self, err);
-            return;
-        }
-        var db = self.rawConnection;
-        //begin transaction
-        self.executeInTransaction(function(tr)
-        {
-            async.waterfall([
-                function(cb) {
-                    db.query("SELECT COUNT(*) AS count FROM information_schema.TABLES WHERE TABLE_NAME=? AND TABLE_TYPE='VIEW' AND TABLE_SCHEMA=DATABASE()", [ name ],function(err, result) {
-                        if (err) { throw err; }
-                        if (result.length==0)
-                            return cb(null, 0);
-                        cb(null, result[0].count);
-                    });
-                },
-                function(arg, cb) {
-                    if (arg==0) { cb(null, 0); return; }
-                    //format query
-                    var sql = util.format("DROP VIEW %s",name);
-                    db.query(sql, null, function(err, result) {
-                        if (err) { throw err; }
-                        cb(null, 0);
-                    });
-                },
-                function(arg, cb) {
-                    //format query
-                    var formatter = new MySqlFormatter();
-                    var sql = util.format("CREATE VIEW `%s` AS %s", name, formatter.format(query));
-                    console.log(util.format('CREATE VIEW: %s', sql));
-                    db.query(sql, null, function(err, result) {
-                        if (err) { throw err; }
-                        cb(null, 0);
-                    });
-                }
-            ], function(err) {
-                if (err) { tr(err); return; }
-                tr(null);
-            })
-        }, function(err) {
-            callback(err);
-        });
-    });
+    this.view(name).create(query, callback);
 };
 
 /**
@@ -706,6 +660,82 @@ MySqlAdapter.prototype.table = function(name) {
             });
         }
     }
+};
+
+
+MySqlAdapter.prototype.view = function(name) {
+    var self = this, owner, view;
+
+    var matches = /(\w+)\.(\w+)/.exec(name);
+    if (matches) {
+        //get schema owner
+        owner = matches[1];
+        //get table name
+        view = matches[2];
+    }
+    else {
+        view = name;
+    }
+    return {
+        /**
+         * @param {function(Error,Boolean=)} callback
+         */
+        exists:function(callback) {
+            var sql = 'SELECT COUNT(*) AS `count` FROM information_schema.TABLES WHERE TABLE_NAME=? AND TABLE_TYPE=\'VIEW\' AND TABLE_SCHEMA=DATABASE()';
+            self.execute(sql, [name], function(err, result) {
+                if (err) { callback(err); return; }
+                callback(null, (result[0].count>0));
+            });
+        },
+        /**
+         * @param {function(Error=)} callback
+         */
+        drop:function(callback) {
+            callback = callback || function() {};
+            self.open(function(err) {
+                if (err) { return callback(err); }
+                var sql = 'SELECT COUNT(*) AS `count` FROM information_schema.TABLES WHERE TABLE_NAME=? AND TABLE_TYPE=\'VIEW\' AND TABLE_SCHEMA=DATABASE()';
+                self.execute(sql, [name], function(err, result) {
+                    if (err) { return callback(err); }
+                    var exists = (result[0].count>0);
+                    if (exists) {
+                        var sql = util.format('DROP VIEW `%s`',name);
+                        self.execute(sql, undefined, function(err) {
+                            if (err) { callback(err); return; }
+                            callback();
+                        });
+                    }
+                    else {
+                        callback();
+                    }
+                });
+            });
+        },
+        /**
+         * @param {QueryExpression|*} q
+         * @param {function(Error=)} callback
+         */
+        create:function(q, callback) {
+            var thisArg = this;
+            self.executeInTransaction(function(tr) {
+                thisArg.drop(function(err) {
+                    if (err) { tr(err); return; }
+                    try {
+                        var sql = util.format('CREATE VIEW `%s` AS ',name);
+                        var formatter = new MySqlFormatter();
+                        sql += formatter.format(q);
+                        self.execute(sql, [], tr);
+                    }
+                    catch(e) {
+                        tr(e);
+                    }
+                });
+            }, function(err) {
+                callback(err);
+            });
+
+        }
+    };
 };
 
 MySqlAdapter.queryFormat = function (query, values) {
