@@ -1,4 +1,4 @@
-# most-data-mysql (in progress - separate adapter from most-data core)
+# most-data-mysql
 Most Web Framework MySQL Adapter
 ##Install
 $ npm install most-data-mysql
@@ -15,9 +15,10 @@ Register MySQL adapter on app.json as follows:
         { "name":"development", "invariantName":"mysql", "default":true,
             "options": {
               "host":"localhost",
-              "port":1521,
+              "port":3306,
               "user":"user",
-              "password":"password"
+              "password":"password",
+              "database":"test"
             }
         }
         ...
