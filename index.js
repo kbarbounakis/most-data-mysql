@@ -521,15 +521,13 @@ MySqlAdapter.prototype.migrate = function(obj, callback) {
                         cb(new Error('Invalid migration data.'));
                     }
                 }, function(arg, cb) {
-
                     if (arg>0) {
                         //log migration to database
-                        db.query('INSERT INTO migrations SET ?', { appliesTo:migration.appliesTo,
-                            model:migration.model,
-                            version:migration.version,
-                            description:migration.description }, function(err)
-                        {
-                            if (err) throw err;
+                        self.execute('INSERT INTO `migrations` (`appliesTo`,`model`,`version`,`description`) VALUES (?,?,?,?)', [migration.appliesTo,
+                            migration.model,
+                            migration.version,
+                            migration.description ], function(err) {
+                            if (err) { return cb(err); }
                             return cb(null, 1);
                         });
                     }
