@@ -270,27 +270,20 @@ MySqlAdapter.prototype.execute = function(query, values, callback) {
                 callback.call(self, err);
             }
             else {
-                //log statement (optional)
-                if (process.env.NODE_ENV==='development')
-                    console.log(util.format('SQL:%s, Parameters:%s', sql, JSON.stringify(values)));
-                //execute raw command
-                /*
-                //using timestamp and tinyint (?) casting (obsolete)
-                {
-                 sql: sql,
-                 typeCast: function (field, next) {
-                     if (field.type === 'TIMESTAMP') {
-                     var s = field.string();
-                         if (/\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}/.test(s)) {
-                            return new Date(s);
-                         }
-                         return;
-                     }
-                     return next();
-                  }
+
+                var startTime;
+                if (process.env.NODE_ENV==='development') {
+                    startTime = new Date().getTime();
                 }
-                */
+                //log statement (optional)
+                if (process.env.NODE_ENV==='development') {
+                    console.log(util.format('SQL:%s, Parameters:%s', sql, JSON.stringify(values)));
+                }
+                //execute raw command
                 self.rawConnection.query(sql, values, function(err, result) {
+                    if (process.env.NODE_ENV==='development') {
+                        console.log(util.format('SQL (Execution Time:%sms):%s, Parameters:%s', (new Date()).getTime()-startTime, sql, JSON.stringify(values)));
+                    }
                     callback.call(self, err, result);
                 });
             }
@@ -787,8 +780,12 @@ util.inherits(MySqlFormatter, qry.classes.SqlFormatter);
 MySqlFormatter.NAME_FORMAT = '`$1`';
 
 MySqlFormatter.prototype.escapeName = function(name) {
-    if (typeof name === 'string')
-        return name.replace(/(\w+)/ig, '`$1`');
+    if (typeof name === 'string') {
+        if (/^(\w+)\.(\w+)$/g.test(name)) {
+            return name.replace(/(\w+)/g, MySqlFormatter.NAME_FORMAT);
+        }
+        return name.replace(/(\w+)$|^(\w+)$/g, MySqlFormatter.NAME_FORMAT);
+    }
     return name;
 };
 
