@@ -45,32 +45,38 @@ MySqlAdapter.prototype.open = function(callback)
     callback = callback || function() {};
     var self = this;
     if (this.rawConnection) {
-        return callback.call(self);
+        return callback();
     }
+    //get current timezone
+    var offset = (new Date()).getTimezoneOffset(),
+        timezone = (offset<=0 ? '+' : '-') + zeroPad(-Math.floor(offset/60),2) + ':' + zeroPad(offset%60,2);
     if (self.connectionPooling) {
         if (typeof MySqlAdapter.pool === 'undefined') {
             MySqlAdapter.pool = mysql.createPool(this.options);
         }
         MySqlAdapter.pool.getConnection(function(err, connection) {
             if (err) {
-                console.log(err);
-                callback.call(self, err);
+                return callback(err);
             }
             else {
                 self.rawConnection = connection;
-                callback.call(self);
+                self.execute("SET time_zone=?", timezone, function(err) {
+                    return callback(err);
+                });
             }
         });
     }
     else {
-        this.rawConnection = mysql.createConnection(this.options);
-        this.rawConnection.connect(function(err) {
+        self.rawConnection = mysql.createConnection(this.options);
+        self.rawConnection.connect(function(err) {
             if (err) {
-                console.log(err);
-                callback.call(self, err);
+                return callback(err);
             }
             else {
-                callback.call(self);
+                //set connection timezone
+                self.execute("SET time_zone=?", timezone, function(err) {
+                    return callback(err);
+                });
             }
         });
     }
@@ -805,11 +811,13 @@ MySqlFormatter.prototype.escapeDate = function(val) {
     var hour   = zeroPad(val.getHours(), 2);
     var minute = zeroPad(val.getMinutes(), 2);
     var second = zeroPad(val.getSeconds(), 2);
-    var millisecond = zeroPad(val.getMilliseconds(), 3);
+    //var millisecond = zeroPad(val.getMilliseconds(), 3);
     //format timezone
     var offset = val.getTimezoneOffset(),
         timezone = (offset<=0 ? '+' : '-') + zeroPad(-Math.floor(offset/60),2) + ':' + zeroPad(offset%60,2);
-    return "'" + year + '-' + month + '-' + day + ' ' + hour + ':' + minute + ':' + second + "." + millisecond + timezone + "'";
+    var datetime = year + '-' + month + '-' + day + ' ' + hour + ':' + minute + ':' + second;
+    //convert timestamp to mysql server timezone (by using date object timezone offset)
+    return util.format("CONVERT_TZ('%s','%s', @@session.time_zone)", datetime, timezone);
 };
 
 if (typeof exports !== 'undefined')
