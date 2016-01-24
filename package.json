@@ -1,6 +1,6 @@
 {
   "name": "most-data-mysql",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "MOST Web Framework MySQL Data Adapter",
   "main": "index.js",
   "scripts": {
