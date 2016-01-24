@@ -275,10 +275,6 @@ MySqlAdapter.prototype.execute = function(query, values, callback) {
                 if (process.env.NODE_ENV==='development') {
                     startTime = new Date().getTime();
                 }
-                //log statement (optional)
-                if (process.env.NODE_ENV==='development') {
-                    console.log(util.format('SQL:%s, Parameters:%s', sql, JSON.stringify(values)));
-                }
                 //execute raw command
                 self.rawConnection.query(sql, values, function(err, result) {
                     if (process.env.NODE_ENV==='development') {
