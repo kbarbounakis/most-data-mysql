@@ -26,7 +26,7 @@
   "homepage": "https://github.com/kbarbounakis/most-data-mysql",
   "dependencies": {
     "async": "^1.4.2",
-    "most-query": "~0.1.21",
+    "most-query": "^0.1.31",
     "mysql": "^2.1.0"
   }
 }

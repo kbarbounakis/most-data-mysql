@@ -351,13 +351,8 @@ MySqlAdapter.formatType = function(field)
             s = 'int(11)';
             break;
         case 'URL':
-            if (size>0)
-                s =  util.format('varchar(%s)', size);
-            else
-                s =  'varchar(512)';
-            break;
         case 'Text':
-            s =  util.format('varchar(%s)', size>0 ? size : 512);
+            s = size>0 ?  util.format('varchar(%s)', size) : 'varchar(512)';
             break;
         case 'Note':
             s = size>0 ?  util.format('varchar(%s)', size) : 'text';
@@ -376,7 +371,13 @@ MySqlAdapter.formatType = function(field)
             s = 'int(11)';
             break;
     }
-    s += (typeof field.nullable === 'undefined') ? ' null': ((field.nullable==true || field.nullable == 1) ? ' null': ' not null');
+    if (field.primary == true) {
+        s += ' not null';
+    }
+    else {
+        s += (typeof field.nullable === 'undefined') ? ' null': ((field.nullable==true || field.nullable == 1) ? ' null': ' not null');
+
+    }
     return s;
 };
 /**
