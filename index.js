@@ -82,7 +82,7 @@ MySqlAdapter.prototype.open = function(callback)
     }
 };
 /**
- * @param {function(Error=)} callback
+ * @param {Function} callback
  */
 MySqlAdapter.prototype.close = function(callback) {
     var self = this;
@@ -106,8 +106,8 @@ MySqlAdapter.prototype.close = function(callback) {
 };
 /**
  * Begins a data transaction and executes the given function
- * @param fn {Function}
- * @param callback {Function}
+ * @param {Function} fn
+ * @param {Function} callback
  */
 MySqlAdapter.prototype.executeInTransaction = function(fn, callback)
 {
@@ -142,7 +142,7 @@ MySqlAdapter.prototype.executeInTransaction = function(fn, callback)
                         {
                             if (error) {
                                 //rollback transaction
-                                self.execute('ROLLBACK', null, function(err) {
+                                self.execute('ROLLBACK', null, function() {
                                     //st flag to false
                                     self.__transaction = false;
                                     //call callback
@@ -178,8 +178,8 @@ MySqlAdapter.prototype.executeInTransaction = function(fn, callback)
 
 /**
  * Executes an operation against database and returns the results.
- * @param batch {DataModelBatch}
- * @param callback {Function}
+ * @param {DataModelBatch} batch
+ * @param {Function} callback
  */
 MySqlAdapter.prototype.executeBatch = function(batch, callback) {
     callback = callback || function() {};
@@ -188,9 +188,9 @@ MySqlAdapter.prototype.executeBatch = function(batch, callback) {
 
 /**
  * Produces a new identity value for the given entity and attribute.
- * @param entity {String} The target entity name
- * @param attribute {String} The target attribute
- * @param callback {Function=}
+ * @param {String} entity - The target entity name
+ * @param {String} attribute - The target attribute
+ * @param {Function=} callback
  */
 MySqlAdapter.prototype.selectIdentity = function(entity, attribute , callback) {
 
@@ -250,7 +250,7 @@ MySqlAdapter.prototype.selectIdentity = function(entity, attribute , callback) {
 /**
  * @param query {*}
  * @param values {*}
- * @param {function} callback
+ * @param {Function} callback
  */
 MySqlAdapter.prototype.execute = function(query, values, callback) {
     var self = this, sql = null;
@@ -392,7 +392,7 @@ MySqlAdapter.prototype.createView = function(name, query, callback) {
 /**
  *
  * @param  {DataModelMigration|*} obj - An Object that represents the data model scheme we want to migrate
- * @param {function(Error=,*=)} callback
+ * @param {Function} callback
  */
 MySqlAdapter.prototype.migrate = function(obj, callback) {
     if (obj==null)
@@ -656,11 +656,15 @@ MySqlAdapter.prototype.table = function(name) {
             var formatter = new MySqlFormatter();
             var strTable = formatter.escapeName(name);
             //generate SQL statement
-            var sql = fields.map(function(x) {
+            var statements = fields.map(function(x) {
                 return MySqlAdapter.format('ALTER TABLE ' + strTable + ' ADD COLUMN `%f` %t', x);
-            }).join(';');
-            self.execute(sql, [], function(err) {
-                callback(err);
+            });
+            return async.eachSeries(statements, function(sql, cb) {
+                self.execute(sql, [], function(err) {
+                    return cb(err);
+                });
+            }, function(err) {
+                return callback(err);
             });
         },
         /**
@@ -683,11 +687,15 @@ MySqlAdapter.prototype.table = function(name) {
             var formatter = new MySqlFormatter();
             var strTable = formatter.escapeName(name);
             //generate SQL statement
-            var sql = fields.map(function(x) {
+            var statements = fields.map(function(x) {
                 return MySqlAdapter.format('ALTER TABLE ' + strTable + ' MODIFY COLUMN `%f` %t', x);
-            }).join(';');
-            self.execute(sql, [], function(err) {
-                callback(err);
+            });
+            return async.eachSeries(statements, function(sql, cb) {
+                self.execute(sql, [], function(err) {
+                    return cb(err);
+                });
+            }, function(err) {
+                return callback(err);
             });
         }
     }
