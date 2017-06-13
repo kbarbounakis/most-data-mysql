@@ -29,6 +29,7 @@ function MySqlAdapter(options)
      * @type {*}
      */
     this.options = options;
+    this.options.host = this.options.host || this.options.server;
     /**
      * Gets or sets a boolean that indicates whether connection pooling is enabled or not.
      * @type {boolean}
