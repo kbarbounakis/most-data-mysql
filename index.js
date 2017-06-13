@@ -615,7 +615,7 @@ MySqlAdapter.prototype.table = function(name) {
             if (!util.isArray(fields)) {
                 return callback(new Error('Invalid argument type. Expected Array.'))
             }
-            if (fields.length == 0) {
+            if (fields.length === 0) {
                 return callback(new Error('Invalid argument. Fields collection cannot be empty.'))
             }
             var strFields = fields.filter(function(x) {
@@ -625,13 +625,13 @@ MySqlAdapter.prototype.table = function(name) {
                     return MySqlAdapter.format('`%f` %t', x);
                 }).join(', ');
             //add primary key constraint
-            var strPKFields = fields.filter(function(x) { return (x.primary == true || x.primary == 1); }).map(function(x) {
+            var strPKFields = fields.filter(function(x) { return (x.primary === true || x.primary === 1); }).map(function(x) {
                 return MySqlAdapter.format('`%f`', x);
             }).join(', ');
             if (strPKFields.length>0) {
                 strFields += ', ' + util.format('PRIMARY KEY (%s)', strPKFields);
             }
-            var sql = util.format('CREATE TABLE %s (%s)', name, strFields);
+            var sql = util.format('CREATE TABLE `%s` (%s)', name, strFields);
             self.execute(sql, null, function(err) {
                 callback(err);
             });
